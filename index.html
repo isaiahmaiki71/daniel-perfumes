@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Daniel Perfumes | Luxury Fragrances in Kampala</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preload" as="image" href="assets/le-male-elixir.jpeg" fetchpriority="high">
 <meta name="description" content="Discover premium fragrances at Daniel Perfumes, located behind Acacia Mall in Kisementi, Kampala. Explore elegant scents for men, women and everyone.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script>window.__dpLoaderStartedAt=performance.now();</script>
 <style>
 :root{
   --black:#0a0a0a; --ink:#141414; --white:#ffffff; --ivory:#f6f3ee;
@@ -368,8 +370,9 @@ nav.scrolled{padding:14px 5vw;background:rgba(243,239,232,.94);}
 .collection-empty{display:none !important;}
 .product-modal-media{background:#eee9e0;}
 .product-card-premium:focus-visible,.category-feature:focus-visible,.category-tab:focus-visible,.btn:focus-visible,.nav-links a:focus-visible,.icon-btn:focus-visible,.burger:focus-visible,.modal-close:focus-visible{outline:2px solid var(--accent-gold);outline-offset:4px;}
-.site-loader{position:fixed;inset:0;z-index:1000;background:#0d0d0c;color:#f3efe8;display:grid;place-items:center;transition:opacity .7s var(--ease),visibility .7s var(--ease);}
-.site-loader.is-done{opacity:0;visibility:hidden;pointer-events:none;}
+.site-loader{position:fixed;inset:0;z-index:1000;background:#0d0d0c;color:#f3efe8;display:grid;place-items:center;transition:opacity .7s var(--ease),visibility 0s linear .7s;}
+.site-loader.is-exiting{opacity:0;}
+.site-loader.is-done{visibility:hidden;}
 .loader-inner{text-align:center;}
 .loader-wordmark{font-family:'Cormorant Garamond',serif;font-size:1rem;letter-spacing:.28em;}
 .loader-rule{width:110px;height:1px;background:var(--accent-gold);margin:18px auto 0;transform-origin:left;animation:loaderRule 1.2s var(--ease) infinite alternate;}
@@ -410,7 +413,7 @@ body.is-loading{overflow:hidden;}
 }
 </script>
 </head>
-<body class="is-loading">
+<body class="is-loading" data-loader-start="">
 
 <div class="site-loader" id="siteLoader" aria-label="Loading Daniel Perfumes">
   <div class="loader-inner">
@@ -714,12 +717,50 @@ document.addEventListener('DOMContentLoaded', () => {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fineHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   const siteLoader = document.getElementById('siteLoader');
-  const finishLoading = () => {
-    siteLoader?.classList.add('is-done');
-    document.body.classList.remove('is-loading');
-  };
-  window.addEventListener('load', finishLoading, {once:true});
-  window.setTimeout(finishLoading, reduceMotion ? 100 : 1400);
+  const loaderStartedAt = Number(window.__dpLoaderStartedAt) || performance.now();
+  const minimumVisibleMs = 3000;
+  const exitDurationMs = reduceMotion ? 120 : 700;
+  const criticalTimeoutMs = 5000;
+
+  function waitForHeroAsset() {
+    return new Promise(resolve => {
+      const heroAsset = new Image();
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      heroAsset.onload = settle;
+      heroAsset.onerror = settle;
+      heroAsset.src = 'assets/le-male-elixir.jpeg';
+      if (heroAsset.complete) settle();
+      window.setTimeout(settle, criticalTimeoutMs);
+    });
+  }
+
+  function waitForCriticalFonts() {
+    if (!document.fonts?.ready) return Promise.resolve();
+    return Promise.race([
+      document.fonts.ready,
+      new Promise(resolve => window.setTimeout(resolve, 2500))
+    ]);
+  }
+
+  function finishLoading() {
+    if (!siteLoader || siteLoader.classList.contains('is-exiting')) return;
+    siteLoader.classList.add('is-exiting');
+    window.setTimeout(() => {
+      siteLoader.classList.add('is-done');
+      document.body.classList.remove('is-loading');
+    }, exitDurationMs);
+  }
+
+  Promise.all([
+    waitForHeroAsset(),
+    waitForCriticalFonts(),
+    new Promise(resolve => window.setTimeout(resolve, Math.max(0, minimumVisibleMs - (performance.now() - loaderStartedAt))))
+  ]).then(() => window.requestAnimationFrame(finishLoading));
 
   window.addEventListener('scroll', () => {
     nav.classList.toggle('scrolled', window.scrollY > 60);
